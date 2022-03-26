@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"image"
 	"image/color"
 	"image/jpeg"
 	"image/png"
+	"io/ioutil"
 	"math"
 	"os"
 	"strconv"
@@ -166,40 +168,42 @@ func main() {
 		fmt.Printf("VERBOSE: Resized image from %s to %s\n", img.Bounds().Size(), processedImg.Bounds().Size())
 	}
 
-	outFile := args[0] + ".txt"
-
-	if len(opts.Output) > 0 {
-		outFile = opts.Output
-	}
-
-	of, err := os.OpenFile(outFile, os.O_CREATE|os.O_RDWR, 0777)
-
-	if err != nil {
-		panic(err)
-	}
-
-	defer of.Close()
-
-	if opts.Verbose {
-		fmt.Printf("VERBOSE: Created output file '%s'\n", outFile)
-	}
+	result := &bytes.Buffer{}
 
 	for y := 0; y < oh; y++ {
 		for x := 0; x < ow; x++ {
 			lum := luminance(processedImg.At(x, y))
 			char := charset[int(float64(len(charset))*lum)]
 
-			if _, err = of.WriteString(fmt.Sprintf("%c", char)); err != nil {
+			if _, err = result.WriteString(fmt.Sprintf("%c", char)); err != nil {
 				panic(err)
 			}
 		}
 
-		if _, err = of.WriteString("\n"); err != nil {
-			panic(err)
+		if y+1 != oh {
+			if _, err = result.WriteString("\n"); err != nil {
+				panic(err)
+			}
 		}
 	}
 
-	if opts.Verbose {
-		fmt.Printf("VERBOSE: Successfully wrote output to '%s'\n", outFile)
+	if len(opts.Output) > 0 {
+		outFile := args[0] + ".txt"
+
+		if len(opts.Output) > 0 {
+			outFile = opts.Output
+		}
+
+		if err = ioutil.WriteFile(outFile, result.Bytes(), 0777); err != nil {
+			panic(err)
+		}
+
+		if opts.Verbose {
+			fmt.Printf("VERBOSE: Successfully wrote output to '%s'\n", outFile)
+		}
+
+		return
 	}
+
+	fmt.Println(result.String())
 }
